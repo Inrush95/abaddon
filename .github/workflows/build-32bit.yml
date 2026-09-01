@@ -1,14 +1,11 @@
 name: Build Windows 32-bit (x86)
 
 on:
-  workflow_dispatch: # Allows you to manually click a button on the web to start the build
+  workflow_dispatch:
 
 jobs:
   build-x86:
     runs-on: windows-2022
-    defaults:
-      run:
-        shell: msys2 {0}
 
     steps:
       - name: Checkout Repository
@@ -38,15 +35,16 @@ jobs:
             mingw-w64-i686-spdlog
 
       - name: Configure and Compile (Cloud Build)
+        shell: msys2 {0}
         run: |
           mkdir build && cd build
           cmake -GNinja -DCMAKE_BUILD_TYPE=Release ..
           ninja
 
       - name: Bundle Executable & Resources
-        shell: bash
+        shell: msys2 {0}
         run: |
-          mkdir abaddon-windows-32bit
+          mkdir -p abaddon-windows-32bit
           cp build/abaddon.exe abaddon-windows-32bit/
           cp -r resources abaddon-windows-32bit/
           
