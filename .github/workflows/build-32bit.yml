@@ -1,0 +1,57 @@
+name: Build Windows 32-bit (x86)
+
+on:
+  workflow_dispatch: # Allows you to manually click a button on the web to start the build
+
+jobs:
+  build-x86:
+    runs-on: windows-2022
+    defaults:
+      run:
+        shell: msys2 {0}
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          submodules: 'recursive'
+
+      - name: Setup MSYS2 and 32-bit Toolchain
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW32
+          update: true
+          install: >-
+            mingw-w64-i686-toolchain
+            mingw-w64-i686-cmake
+            mingw-w64-i686-ninja
+            git
+            mingw-w64-i686-sqlite3
+            mingw-w64-i686-nlohmann-json
+            mingw-w64-i686-curl
+            mingw-w64-i686-zlib
+            mingw-w64-i686-gtkmm3
+            mingw-w64-i686-libhandy
+            mingw-w64-i686-opus
+            mingw-w64-i686-libsodium
+            mingw-w64-i686-openssl
+            mingw-w64-i686-spdlog
+
+      - name: Configure and Compile (Cloud Build)
+        run: |
+          mkdir build && cd build
+          cmake -GNinja -DCMAKE_BUILD_TYPE=Release ..
+          ninja
+
+      - name: Bundle Executable & Resources
+        shell: bash
+        run: |
+          mkdir abaddon-windows-32bit
+          cp build/abaddon.exe abaddon-windows-32bit/
+          cp -r resources abaddon-windows-32bit/
+          
+      - name: Upload Finished Build 
+        uses: actions/upload-artifact@v4
+        with:
+          name: abaddon-win32-build
+          path: abaddon-windows-32bit/
