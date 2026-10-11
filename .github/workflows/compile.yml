@@ -20,10 +20,10 @@ jobs:
           New-Item -ItemType Directory -Force -Path .\include
           Invoke-WebRequest -Uri "https://github.com" -OutFile ".\include\json.hpp"
 
-      - name: Install 32-bit CURL and ZLIB Dependencies
+      - name: Install 32-bit Desktop Dependencies
         shell: cmd
         run: |
-          vcpkg install curl:x86-windows zlib:x86-windows
+          vcpkg install curl:x86-windows zlib:x86-windows sqlite3:x86-windows openssl:x86-windows libsodium:x86-windows opus:x86-windows
 
       - name: Compile 32-bit Desktop Binary
         shell: cmd
