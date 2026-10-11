@@ -14,12 +14,19 @@ jobs:
       - name: Setup Windows MSVC Build Environment
         uses: microsoft/setup-msbuild@v2
 
+      - name: Inject Missing JSON Framework
+        shell: cmd
+        run: |
+          mkdir include
+          curl -sLK https://github.com -o include/json.hpp
+          echo NLOHMANN_JSON_INCLUDE_DIR inside layout workspace verified
+
       - name: Compile 32-bit Desktop Binary
         shell: cmd
         run: |
           mkdir build
           cd build
-          cmake -A Win32 -DCMAKE_BUILD_TYPE=Release ..
+          cmake -A Win32 -DCMAKE_BUILD_TYPE=Release -Dnlohmann_json_DIR=../include -DNLOHMANN_JSON_INCLUDE_DIR=../include ..
           cmake --build . --config Release
 
       - name: Upload Completed 32-bit Executable
