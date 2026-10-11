@@ -15,11 +15,10 @@ jobs:
         uses: microsoft/setup-msbuild@v2
 
       - name: Inject Missing JSON Framework
-        shell: cmd
+        shell: powershell
         run: |
-          mkdir include
-          curl -sLK https://github.com -o include/json.hpp
-          echo NLOHMANN_JSON_INCLUDE_DIR inside layout workspace verified
+          New-Item -ItemType Directory -Force -Path .\include
+          Invoke-WebRequest -Uri "https://github.com" -OutFile ".\include\json.hpp"
 
       - name: Compile 32-bit Desktop Binary
         shell: cmd
