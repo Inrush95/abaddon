@@ -1,0 +1,30 @@
+name: Compile 32-bit Abaddon
+on: [workflow_dispatch]
+
+jobs:
+  build-x86:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout Source Code and Submodules
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          set-safe-directory: true
+
+      - name: Setup Windows MSVC Build Environment
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Compile 32-bit Desktop Binary
+        shell: cmd
+        run: |
+          mkdir build
+          cd build
+          cmake -A Win32 -DCMAKE_BUILD_TYPE=Release ..
+          cmake --build . --config Release
+
+      - name: Upload Completed 32-bit Executable
+        uses: actions/upload-artifact@v4
+        with:
+          name: abaddon-windows-32bit
+          path: build/Release/abaddon.exe
+          
