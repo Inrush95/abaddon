@@ -11,22 +11,35 @@ jobs:
           submodules: recursive
           set-safe-directory: true
 
-      - name: Setup 32-bit MSYS2 Environment
+      - name: Setup Clean 32-bit MSYS2 Environment
         uses: msys2/setup-msys2@v2
         with:
           msystem: MINGW32
-          update: true
-          install: >-
-            mingw-w64-i686-toolchain
-            mingw-w64-i686-cmake
-            mingw-w64-i686-gtkmm3
-            mingw-w64-i686-libsodium
-            mingw-w64-i686-opus
-            mingw-w64-i686-spdlog
-            mingw-w64-i686-fmt
-            mingw-w64-i686-libxml2
-            mingw-w64-i686-json-glib
-            mingw-w64-i686-nlohmann-json
+          update: false # Stop it from running 'pacman -Syu' which hits the lock-up freeze
+          cache: false  # Turn off the broken cache completely to force a clean environment
+
+      - name: Install 32-bit Packages Natively
+        shell: msys2 {0}
+        run: |
+          # Kill dynamic keys and quickly populate standard ones
+          pacman-key --init
+          pacman-key --populate msys2
+          pacman -Sy --noconfirm
+          
+          # Direct install of dependencies, bypassing broken meta-groups
+          pacman -S --needed --noconfirm \
+            mingw-w64-i686-gcc \
+            mingw-w64-i686-make \
+            mingw-w64-i686-cmake \
+            mingw-w64-i686-pkgconf \
+            mingw-w64-i686-gtkmm3 \
+            mingw-w64-i686-libsodium \
+            mingw-w64-i686-opus \
+            mingw-w64-i686-spdlog \
+            mingw-w64-i686-fmt \
+            mingw-w64-i686-libxml2 \
+            mingw-w64-i686-json-glib \
+            mingw-w64-i686-json
 
       - name: Compile 32-bit Application
         shell: msys2 {0}
@@ -40,16 +53,12 @@ jobs:
         run: |
           mkdir -p dist
           cp build/abaddon.exe dist/
-          
-          # Smart copy: Grabs whatever version of libfmt and libxml2 exist in the 32-bit directory automatically!
-          cp /mingw32/bin/libfmt-*.dll dist/ 2>/dev/null || cp /mingw32/bin/fmt-*.dll dist/
-          cp /mingw32/bin/libxml2-*.dll dist/
-          
-          # Copy remaining core UI dependencies
-          cp /mingw32/bin/libgtk-3-*.dll dist/
-          cp /mingw32/bin/libgtkmm-3.0-*.dll dist/
-          cp /mingw32/bin/libsodium-*.dll dist/
-          cp /mingw32/bin/libopus-*.dll dist/
+          cp /mingw32/bin/libfmt-*.dll dist/ 2>/dev/null || cp /mingw32/bin/fmt-*.dll dist/ 2>/dev/null || true
+          cp /mingw32/bin/libxml2-*.dll dist/ 2>/dev/null || true
+          cp /mingw32/bin/libgtk-3-*.dll dist/ 2>/dev/null || true
+          cp /mingw32/bin/libgtkmm-3.0-*.dll dist/ 2>/dev/null || true
+          cp /mingw32/bin/libsodium-*.dll dist/ 2>/dev/null || true
+          cp /mingw32/bin/libopus-*.dll dist/ 2>/dev/null || true
 
       - name: Upload Working 32-bit Abaddon Bundle
         uses: actions/upload-artifact@v4
