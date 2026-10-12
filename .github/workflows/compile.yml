@@ -1,68 +1,52 @@
-name: Abaddon CI
+name: Compile 32-bit Abaddon
 on: [workflow_dispatch]
 
 jobs:
   build-x86:
     runs-on: windows-latest
     steps:
-      - name: Checkout Source Code
+      - name: Checkout Official Code
         uses: actions/checkout@v4
         with:
+          repository: uowuo/abaddon
           submodules: recursive
           set-safe-directory: true
 
-      - name: Setup Clean 32-bit MSYS2 Environment
-        uses: msys2/setup-msys2@v2
-        with:
-          msystem: MINGW32
-          update: false # Stop it from running 'pacman -Syu' which hits the lock-up freeze
-          cache: false  # Turn off the broken cache completely to force a clean environment
+      - name: Setup Windows MSVC Compiler
+        uses: microsoft/setup-msbuild@v2
 
-      - name: Install 32-bit Packages Natively
-        shell: msys2 {0}
+      - name: Fetch Pre-Compiled 32bit Dependencies
+        shell: powershell
         run: |
-          # Kill dynamic keys and quickly populate standard ones
-          pacman-key --init
-          pacman-key --populate msys2
-          pacman -Sy --noconfirm
+          # 1. Download Header-Only JSON
+          New-Item -ItemType Directory -Force -Path .\include
+          Invoke-WebRequest -Uri "https://github.com" -OutFile ".\include\json.hpp"
           
-          # Direct install of dependencies, bypassing broken meta-groups
-          pacman -S --needed --noconfirm \
-            mingw-w64-i686-gcc \
-            mingw-w64-i686-make \
-            mingw-w64-i686-cmake \
-            mingw-w64-i686-pkgconf \
-            mingw-w64-i686-gtkmm3 \
-            mingw-w64-i686-libsodium \
-            mingw-w64-i686-opus \
-            mingw-w64-i686-spdlog \
-            mingw-w64-i686-fmt \
-            mingw-w64-i686-libxml2 \
-            mingw-w64-i686-json-glib \
-            mingw-w64-i686-json
+          # 2. Download and Silently Install Pre-Compiled Win32 GTK Runtime Stacks
+          Invoke-WebRequest -Uri "https://github.com" -OutFile "gtk_installer.exe"
+          Start-Process -FilePath ".\gtk_installer.exe" -ArgumentList "/S /D=C:\gtk3" -Wait
 
-      - name: Compile 32-bit Application
-        shell: msys2 {0}
+      - name: Compile Standalone 32bit Binary
+        shell: cmd
         run: |
-          mkdir build && cd build
-          cmake -G "MSYS Makefiles" -DCMAKE_BUILD_TYPE=Release ..
-          make -j2
+          mkdir build
+          cd build
+          set "GTK_BASEPATH=C:\gtk3"
+          set "PATH=C:\gtk3\bin;%PATH%"
+          cmake -A Win32 -DCMAKE_BUILD_TYPE=Release -DGTK3_DIR=C:/gtk3 -Dnlohmann_json_DIR=../include -DNLOHMANN_JSON_INCLUDE_DIR=../include ..
+          cmake --build . --config Release
 
-      - name: Smart Package and Bundle DLLs
-        shell: msys2 {0}
+      - name: Bundle Executable For Windows 7
+        shell: cmd
         run: |
-          mkdir -p dist
-          cp build/abaddon.exe dist/
-          cp /mingw32/bin/libfmt-*.dll dist/ 2>/dev/null || cp /mingw32/bin/fmt-*.dll dist/ 2>/dev/null || true
-          cp /mingw32/bin/libxml2-*.dll dist/ 2>/dev/null || true
-          cp /mingw32/bin/libgtk-3-*.dll dist/ 2>/dev/null || true
-          cp /mingw32/bin/libgtkmm-3.0-*.dll dist/ 2>/dev/null || true
-          cp /mingw32/bin/libsodium-*.dll dist/ 2>/dev/null || true
-          cp /mingw32/bin/libopus-*.dll dist/ 2>/dev/null || true
+          mkdir dist
+          cp build/Release/abaddon.exe dist/
+          # Collect the necessary visual elements so it opens out-of-the-box
+          cp C:\gtk3\bin\*.dll dist\ 2>nul || true
 
-      - name: Upload Working 32-bit Abaddon Bundle
+      - name: Upload Completed Zip File
         uses: actions/upload-artifact@v4
         with:
-          name: abaddon-windows-32bit-complete
+          name: official-abaddon-win32-completed
           path: dist/
           
