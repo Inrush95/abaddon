@@ -1,52 +1,59 @@
-name: Compile 32-bit Abaddon
+name: Abaddon CI
 on: [workflow_dispatch]
 
 jobs:
   build-x86:
     runs-on: windows-latest
     steps:
-      - name: Checkout Source Code and Submodules
+      - name: Checkout Source Code
         uses: actions/checkout@v4
         with:
           submodules: recursive
           set-safe-directory: true
 
-      - name: Setup Windows MSVC Build Environment
-        uses: microsoft/setup-msbuild@v2
+      - name: Setup 32-bit MSYS2 Environment
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW32
+          update: true
+          install: >-
+            mingw-w64-i686-toolchain
+            mingw-w64-i686-cmake
+            mingw-w64-i686-gtkmm3
+            mingw-w64-i686-libsodium
+            mingw-w64-i686-opus
+            mingw-w64-i686-spdlog
+            mingw-w64-i686-fmt
+            mingw-w64-i686-libxml2
+            mingw-w64-i686-json-glib
+            mingw-w64-i686-nlohmann-json
 
-      - name: Inject Missing JSON Framework
-        shell: powershell
+      - name: Compile 32-bit Application
+        shell: msys2 {0}
         run: |
-          New-Item -ItemType Directory -Force -Path .\include
-          Invoke-WebRequest -Uri "https://github.com" -OutFile ".\include\json.hpp"
+          mkdir build && cd build
+          cmake -G "MSYS Makefiles" -DCMAKE_BUILD_TYPE=Release ..
+          make -j2
 
-      - name: Install 32-bit Fast Network Dependencies via vcpkg
-        shell: cmd
+      - name: Smart Package and Bundle DLLs
+        shell: msys2 {0}
         run: |
-          # Only use vcpkg for small, instant network libraries to prevent long build freezes
-          vcpkg install curl:x86-windows zlib:x86-windows sqlite3:x86-windows openssl:x86-windows libsodium:x86-windows opus:x86-windows spdlog:x86-windows
+          mkdir -p dist
+          cp build/abaddon.exe dist/
+          
+          # Smart copy: Grabs whatever version of libfmt and libxml2 exist in the 32-bit directory automatically!
+          cp /mingw32/bin/libfmt-*.dll dist/ 2>/dev/null || cp /mingw32/bin/fmt-*.dll dist/
+          cp /mingw32/bin/libxml2-*.dll dist/
+          
+          # Copy remaining core UI dependencies
+          cp /mingw32/bin/libgtk-3-*.dll dist/
+          cp /mingw32/bin/libgtkmm-3.0-*.dll dist/
+          cp /mingw32/bin/libsodium-*.dll dist/
+          cp /mingw32/bin/libopus-*.dll dist/
 
-      - name: Download Pre-Compiled 32-bit GTK & GTKMM Binary Stacks
-        shell: powershell
-        run: |
-          # Fetch official, pre-built Win32 binaries to completely bypass the 1.5-hour compilation crash
-          Invoke-WebRequest -Uri "https://github.com" -OutFile "gtk_installer.exe"
-          Start-Process -FilePath ".\gtk_installer.exe" -ArgumentList "/S /D=C:\gtk3" -Wait
-
-      - name: Compile 32-bit Desktop Binary
-        shell: cmd
-        run: |
-          mkdir build
-          cd build
-          # Manually point CMake's environment variables to our static 32-bit GTK injection folder
-          set "GTK_BASEPATH=C:\gtk3"
-          set "PATH=C:\gtk3\bin;%PATH%"
-          cmake -A Win32 -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake -Dnlohmann_json_DIR=../include -DNLOHMANN_JSON_INCLUDE_DIR=../include ..
-          cmake --build . --config Release
-
-      - name: Upload Completed 32-bit Executable
+      - name: Upload Working 32-bit Abaddon Bundle
         uses: actions/upload-artifact@v4
         with:
-          name: abaddon-windows-32bit
-          path: build/Release/abaddon.exe
+          name: abaddon-windows-32bit-complete
+          path: dist/
           
