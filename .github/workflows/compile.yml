@@ -1,52 +1,37 @@
-name: Compile 32-bit Abaddon
+name: Compile Official 32-bit Abaddon
 on: [workflow_dispatch]
 
 jobs:
   build-x86:
     runs-on: windows-latest
     steps:
-      - name: Checkout Official Code
+      - name: Checkout Source Code
         uses: actions/checkout@v4
         with:
           repository: uowuo/abaddon
           submodules: recursive
           set-safe-directory: true
 
-      - name: Setup Windows MSVC Compiler
+      - name: Setup Windows MSVC Build Environment
         uses: microsoft/setup-msbuild@v2
 
-      - name: Fetch Pre-Compiled 32bit Dependencies
-        shell: powershell
+      - name: Install 32-bit Desktop Dependencies via vcpkg
+        shell: cmd
         run: |
-          # 1. Download Header-Only JSON
-          New-Item -ItemType Directory -Force -Path .\include
-          Invoke-WebRequest -Uri "https://github.com" -OutFile ".\include\json.hpp"
-          
-          # 2. Download and Silently Install Pre-Compiled Win32 GTK Runtime Stacks
-          Invoke-WebRequest -Uri "https://github.com" -OutFile "gtk_installer.exe"
-          Start-Process -FilePath ".\gtk_installer.exe" -ArgumentList "/S /D=C:\gtk3" -Wait
+          # Force vcpkg to install native 32-bit windows libraries cleanly
+          vcpkg install curl:x86-windows zlib:x86-windows sqlite3:x86-windows openssl:x86-windows libsodium:x86-windows opus:x86-windows spdlog:x86-windows nlohmann-json:x86-windows gtkmm:x86-windows
 
-      - name: Compile Standalone 32bit Binary
+      - name: Compile 32-bit Desktop Binary
         shell: cmd
         run: |
           mkdir build
           cd build
-          set "GTK_BASEPATH=C:\gtk3"
-          set "PATH=C:\gtk3\bin;%PATH%"
-          cmake -A Win32 -DCMAKE_BUILD_TYPE=Release -DGTK3_DIR=C:/gtk3 -Dnlohmann_json_DIR=../include -DNLOHMANN_JSON_INCLUDE_DIR=../include ..
+          cmake -A Win32 -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake ..
           cmake --build . --config Release
 
-      - name: Bundle Executable For Windows 7
-        shell: cmd
-        run: |
-          mkdir dist
-          cp build/Release/abaddon.exe dist/
-          # Collect the necessary visual elements so it opens out-of-the-box
-          cp C:\gtk3\bin\*.dll dist\ 2>nul || true
-
-      - name: Upload Completed Zip File
+      - name: Upload Completed 32-bit Executable
         uses: actions/upload-artifact@v4
         with:
           name: official-abaddon-win32-completed
-          path: dist/
+          path: build/Release/abaddon.exe
           
