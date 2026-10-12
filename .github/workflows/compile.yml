@@ -18,7 +18,6 @@ jobs:
       - name: Install 32-bit Desktop Dependencies via vcpkg
         shell: cmd
         run: |
-          # Force vcpkg to install native 32-bit windows libraries cleanly
           vcpkg install curl:x86-windows zlib:x86-windows sqlite3:x86-windows openssl:x86-windows libsodium:x86-windows opus:x86-windows spdlog:x86-windows nlohmann-json:x86-windows gtkmm:x86-windows
 
       - name: Compile 32-bit Desktop Binary
@@ -26,7 +25,7 @@ jobs:
         run: |
           mkdir build
           cd build
-          cmake -A Win32 -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake ..
+          cmake -A Win32 -DCMAKE_BUILD_TYPE=Release -DVCPKG_TARGET_TRIPLET=x86-windows -DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake ..
           cmake --build . --config Release
 
       - name: Upload Completed 32-bit Executable
