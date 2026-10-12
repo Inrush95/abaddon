@@ -20,16 +20,27 @@ jobs:
           New-Item -ItemType Directory -Force -Path .\include
           Invoke-WebRequest -Uri "https://github.com" -OutFile ".\include\json.hpp"
 
-      - name: Install 32-bit Desktop Dependencies
+      - name: Install 32-bit Fast Network Dependencies via vcpkg
         shell: cmd
         run: |
-          vcpkg install curl:x86-windows zlib:x86-windows sqlite3:x86-windows openssl:x86-windows libsodium:x86-windows opus:x86-windows spdlog:x86-windows gtkmm:x86-windows
+          # Only use vcpkg for small, instant network libraries to prevent long build freezes
+          vcpkg install curl:x86-windows zlib:x86-windows sqlite3:x86-windows openssl:x86-windows libsodium:x86-windows opus:x86-windows spdlog:x86-windows
+
+      - name: Download Pre-Compiled 32-bit GTK & GTKMM Binary Stacks
+        shell: powershell
+        run: |
+          # Fetch official, pre-built Win32 binaries to completely bypass the 1.5-hour compilation crash
+          Invoke-WebRequest -Uri "https://github.com" -OutFile "gtk_installer.exe"
+          Start-Process -FilePath ".\gtk_installer.exe" -ArgumentList "/S /D=C:\gtk3" -Wait
 
       - name: Compile 32-bit Desktop Binary
         shell: cmd
         run: |
           mkdir build
           cd build
+          # Manually point CMake's environment variables to our static 32-bit GTK injection folder
+          set "GTK_BASEPATH=C:\gtk3"
+          set "PATH=C:\gtk3\bin;%PATH%"
           cmake -A Win32 -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake -Dnlohmann_json_DIR=../include -DNLOHMANN_JSON_INCLUDE_DIR=../include ..
           cmake --build . --config Release
 
